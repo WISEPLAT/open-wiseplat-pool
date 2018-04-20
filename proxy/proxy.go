@@ -2,11 +2,9 @@ package proxy
 
 import (
 	"encoding/json"
-	"io"
 	"log"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -34,22 +32,29 @@ type ProxyServer struct {
 	sessionsMu sync.RWMutex
 	sessions   map[*Session]struct{}
 	timeout    time.Duration
+
+	// WiseplatStratum jobs queue
+	jobsMu sync.RWMutex
+	Jobs *JobQueue
 }
 
 type Session struct {
 	ip  string
 	enc *json.Encoder
 
-	// Stratum
 	sync.Mutex
 	conn  *net.TCPConn
 	login string
+
+	// WiseplatStratum extranonce
+	Extranonce string
 }
 
 func NewProxy(cfg *Config, backend *storage.RedisClient) *ProxyServer {
 	if len(cfg.Name) == 0 {
 		log.Fatal("You must set instance name")
 	}
+
 	policy := policy.Start(&cfg.Proxy.Policy, backend)
 
 	proxy := &ProxyServer{config: cfg, backend: backend, policy: policy}
@@ -64,7 +69,17 @@ func NewProxy(cfg *Config, backend *storage.RedisClient) *ProxyServer {
 
 	if cfg.Proxy.Stratum.Enabled {
 		proxy.sessions = make(map[*Session]struct{})
-		go proxy.ListenTCP()
+
+		switch cfg.Proxy.Stratum.Protocol {
+		case "Stratum-Proxy":
+			go proxy.ListenSP()
+		case "WiseplatStratum":
+			go proxy.ListenES()
+		default:
+			log.Fatal("Please choose either Stratum-Proxy or WiseplatStratum protocol for your stratum endpoint.")
+		}
+	} else {
+		log.Fatal("Stratum endpoint is not configured properly.")
 	}
 
 	proxy.fetchBlockTemplate()
@@ -124,19 +139,31 @@ func NewProxy(cfg *Config, backend *storage.RedisClient) *ProxyServer {
 }
 
 func (s *ProxyServer) Start() {
-	log.Printf("Starting proxy on %v", s.config.Proxy.Listen)
+	log.Printf("Starting work listener on %v", s.config.Proxy.Listen)
 	r := mux.NewRouter()
-	r.Handle("/{login:0x[0-9a-fA-F]{40}}/{id:[0-9a-zA-Z-_]{1,8}}", s)
-	r.Handle("/{login:0x[0-9a-fA-F]{40}}", s)
+	r.HandleFunc("/", func (w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "rpc: POST method required, received "+r.Method, 405)
+			return
+		}
+		// TODO use work data directly, without fetching it again
+		log.Printf("Received new job notification from %v", s.remoteAddr(r))
+		s.fetchBlockTemplate()
+	})
 	srv := &http.Server{
 		Addr:           s.config.Proxy.Listen,
 		Handler:        r,
-		MaxHeaderBytes: s.config.Proxy.LimitHeadersSize,
 	}
 	err := srv.ListenAndServe()
 	if err != nil {
-		log.Fatalf("Failed to start proxy: %v", err)
+		log.Fatalf("Failed to start work listener: %v", err)
 	}
+}
+
+
+func (s *ProxyServer) remoteAddr(r *http.Request) string {
+	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
+	return ip
 }
 
 func (s *ProxyServer) rpc() *rpc.RPCClient {
@@ -159,129 +186,6 @@ func (s *ProxyServer) checkUpstreams() {
 		log.Printf("Switching to %v upstream", s.upstreams[candidate].Name)
 		atomic.StoreInt32(&s.upstream, candidate)
 	}
-}
-
-func (s *ProxyServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "POST" {
-		s.writeError(w, 405, "rpc: POST method required, received "+r.Method)
-		return
-	}
-	ip := s.remoteAddr(r)
-	if !s.policy.IsBanned(ip) {
-		s.handleClient(w, r, ip)
-	}
-}
-
-func (s *ProxyServer) remoteAddr(r *http.Request) string {
-	if s.config.Proxy.BehindReverseProxy {
-		ip := r.Header.Get("X-Forwarded-For")
-		if len(ip) > 0 && net.ParseIP(ip) != nil {
-			return ip
-		}
-	}
-	ip, _, _ := net.SplitHostPort(r.RemoteAddr)
-	return ip
-}
-
-func (s *ProxyServer) handleClient(w http.ResponseWriter, r *http.Request, ip string) {
-	if r.ContentLength > s.config.Proxy.LimitBodySize {
-		log.Printf("Socket flood from %s", ip)
-		s.policy.ApplyMalformedPolicy(ip)
-		http.Error(w, "Request too large", http.StatusExpectationFailed)
-		return
-	}
-	r.Body = http.MaxBytesReader(w, r.Body, s.config.Proxy.LimitBodySize)
-	defer r.Body.Close()
-
-	cs := &Session{ip: ip, enc: json.NewEncoder(w)}
-	dec := json.NewDecoder(r.Body)
-	for {
-		var req JSONRpcReq
-		if err := dec.Decode(&req); err == io.EOF {
-			break
-		} else if err != nil {
-			log.Printf("Malformed request from %v: %v", ip, err)
-			s.policy.ApplyMalformedPolicy(ip)
-			return
-		}
-		cs.handleMessage(s, r, &req)
-	}
-}
-
-func (cs *Session) handleMessage(s *ProxyServer, r *http.Request, req *JSONRpcReq) {
-	if req.Id == nil {
-		log.Printf("Missing RPC id from %s", cs.ip)
-		s.policy.ApplyMalformedPolicy(cs.ip)
-		return
-	}
-
-	vars := mux.Vars(r)
-	login := strings.ToLower(vars["login"])
-
-	if !util.IsValidHexAddress(login) {
-		errReply := &ErrorReply{Code: -1, Message: "Invalid login"}
-		cs.sendError(req.Id, errReply)
-		return
-	}
-	if !s.policy.ApplyLoginPolicy(login, cs.ip) {
-		errReply := &ErrorReply{Code: -1, Message: "You are blacklisted"}
-		cs.sendError(req.Id, errReply)
-		return
-	}
-
-	// Handle RPC methods
-	switch req.Method {
-	case "wsh_getWork":
-		reply, errReply := s.handleGetWorkRPC(cs)
-		if errReply != nil {
-			cs.sendError(req.Id, errReply)
-			break
-		}
-		cs.sendResult(req.Id, &reply)
-	case "wsh_submitWork":
-		if req.Params != nil {
-			var params []string
-			err := json.Unmarshal(*req.Params, &params)
-			if err != nil {
-				log.Printf("Unable to parse params from %v", cs.ip)
-				s.policy.ApplyMalformedPolicy(cs.ip)
-				break
-			}
-			reply, errReply := s.handleSubmitRPC(cs, login, vars["id"], params)
-			if errReply != nil {
-				cs.sendError(req.Id, errReply)
-				break
-			}
-			cs.sendResult(req.Id, &reply)
-		} else {
-			s.policy.ApplyMalformedPolicy(cs.ip)
-			errReply := &ErrorReply{Code: -1, Message: "Malformed request"}
-			cs.sendError(req.Id, errReply)
-		}
-	case "wsh_getBlockByNumber":
-		reply := s.handleGetBlockByNumberRPC()
-		cs.sendResult(req.Id, reply)
-	case "wsh_submitHashrate":
-		cs.sendResult(req.Id, true)
-	default:
-		errReply := s.handleUnknownRPC(cs, req.Method)
-		cs.sendError(req.Id, errReply)
-	}
-}
-
-func (cs *Session) sendResult(id *json.RawMessage, result interface{}) error {
-	message := JSONRpcResp{Id: id, Version: "2.0", Error: nil, Result: result}
-	return cs.enc.Encode(&message)
-}
-
-func (cs *Session) sendError(id *json.RawMessage, reply *ErrorReply) error {
-	message := JSONRpcResp{Id: id, Version: "2.0", Error: reply}
-	return cs.enc.Encode(&message)
-}
-
-func (s *ProxyServer) writeError(w http.ResponseWriter, status int, msg string) {
-	w.WriteHeader(status)
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 }
 
 func (s *ProxyServer) currentBlockTemplate() *BlockTemplate {

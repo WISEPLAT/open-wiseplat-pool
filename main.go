@@ -9,10 +9,9 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/yvasiyarov/gorelic"
-
 	"github.com/wiseplat/open-wiseplat-pool/api"
 	"github.com/wiseplat/open-wiseplat-pool/payouts"
+	"github.com/wiseplat/open-wiseplat-pool/shifts"
 	"github.com/wiseplat/open-wiseplat-pool/proxy"
 	"github.com/wiseplat/open-wiseplat-pool/storage"
 )
@@ -30,24 +29,14 @@ func startApi() {
 	s.Start()
 }
 
-func startBlockUnlocker() {
-	u := payouts.NewBlockUnlocker(&cfg.BlockUnlocker, backend)
-	u.Start()
-}
-
 func startPayoutsProcessor() {
 	u := payouts.NewPayoutsProcessor(&cfg.Payouts, backend)
 	u.Start()
 }
 
-func startNewrelic() {
-	if cfg.NewrelicEnabled {
-		nr := gorelic.NewAgent()
-		nr.Verbose = cfg.NewrelicVerbose
-		nr.NewrelicLicense = cfg.NewrelicKey
-		nr.NewrelicName = cfg.NewrelicName
-		nr.Run()
-	}
+func startShiftsProcessor() {
+	p := shifts.NewShiftsProcessor(&cfg.Shifts, backend)
+	p.Start()
 }
 
 func readConfig(cfg *proxy.Config) {
@@ -78,8 +67,6 @@ func main() {
 		log.Printf("Running with %v threads", cfg.Threads)
 	}
 
-	startNewrelic()
-
 	backend = storage.NewRedisClient(&cfg.Redis, cfg.Coin)
 	pong, err := backend.Check()
 	if err != nil {
@@ -94,11 +81,11 @@ func main() {
 	if cfg.Api.Enabled {
 		go startApi()
 	}
-	if cfg.BlockUnlocker.Enabled {
-		go startBlockUnlocker()
-	}
 	if cfg.Payouts.Enabled {
 		go startPayoutsProcessor()
+	}
+	if cfg.Shifts.Enabled {
+		go startShiftsProcessor()
 	}
 	quit := make(chan bool)
 	<-quit

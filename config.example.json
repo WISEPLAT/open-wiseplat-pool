@@ -5,13 +5,16 @@
 
 	"proxy": {
 		"enabled": true,
-		"listen": "0.0.0.0:8888",
+		"listen": "127.0.0.1:8888",
 		"limitHeadersSize": 1024,
 		"limitBodySize": 256,
 		"behindReverseProxy": false,
-		"blockRefreshInterval": "120ms",
+		"blockRefreshInterval": "1s",
 		"stateUpdateInterval": "3s",
 		"difficulty": 2000000000,
+		"miningFee": 1.5,
+		"potA": 0.8,
+		"potCap": 1.5,
 		"hashrateExpiration": "3h",
 
 		"healthCheck": true,
@@ -19,7 +22,10 @@
 
 		"stratum": {
 			"enabled": true,
-			"listen": "0.0.0.0:8008",
+			"listen": "0.0.0.0:3333",
+			"protocol": "WiseplatStratum",
+			"xnSpace": [0, 255],
+			"xnSize": 2,
 			"timeout": "120s",
 			"maxConn": 8192
 		},
@@ -54,9 +60,10 @@
 		"statsCollectInterval": "5s",
 		"hashrateWindow": "30m",
 		"hashrateLargeWindow": "3h",
-		"luckWindow": [64, 128, 256],
 		"payments": 30,
-		"blocks": 50
+		"blocks": 50,
+		"longShifts": 30,
+		"shortShifts": 24
 	},
 
 	"upstreamCheckInterval": "5s",
@@ -74,23 +81,11 @@
 	],
 
 	"redis": {
-		"endpoint": "127.0.0.1:6379",
+		"network": "unix",
+		"endpoint": "/var/run/redis.sock",
 		"poolSize": 10,
 		"database": 0,
 		"password": ""
-	},
-
-	"unlocker": {
-		"enabled": false,
-		"poolFee": 1.0,
-		"poolFeeAddress": "",
-		"donate": true,
-		"depth": 120,
-		"immatureDepth": 20,
-		"keepTxFees": false,
-		"interval": "10m",
-		"daemon": "http://127.0.0.1:8747",
-		"timeout": "10s"
 	},
 
 	"payouts": {
@@ -103,12 +98,19 @@
 		"gas": "21000",
 		"gasPrice": "50000000000",
 		"autoGas": true,
-		"threshold": 500000000,
+		"thresholdNormal": 500000000,
+		"normalFee": 0,
+		"thresholdInactive": 50000000,
+		"inactiveFee": 100000,
 		"bgsave": false
 	},
 
-	"newrelicEnabled": false,
-	"newrelicName": "MyWiseProxy",
-	"newrelicKey": "SECRET_KEY",
-	"newrelicVerbose": false
+	"shifts": {
+		"enabled": false,
+		"longInterval": "24h",
+		"shortInterval" : "1h",
+		"keepLong" : "720h",
+		"keepShort": "24h",
+		"flushInterval": "24h"
+	}
 }

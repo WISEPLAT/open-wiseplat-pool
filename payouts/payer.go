@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/wiseplat/go-wiseplat/common"
 	"github.com/wiseplat/go-wiseplat/common/hexutil"
 
 	"github.com/wiseplat/open-wiseplat-pool/rpc"
@@ -28,18 +27,22 @@ type PayoutsConfig struct {
 	Gas          string `json:"gas"`
 	GasPrice     string `json:"gasPrice"`
 	AutoGas      bool   `json:"autoGas"`
+
 	// In Shannon
-	Threshold int64 `json:"threshold"`
+	NormalThreshold int64 `json:"thresholdNormal"`
+	NormalFee int64 `json:"normalFee"`
+	InactiveThreshold int64 `json:"thresholdInactive"`
+	InactiveFee int64 `json:"inactiveFee"`
 	BgSave    bool  `json:"bgsave"`
 }
 
 func (self PayoutsConfig) GasHex() string {
-	x := common.String2Big(self.Gas)
+	x := util.String2Big(self.Gas)
 	return hexutil.EncodeBig(x)
 }
 
 func (self PayoutsConfig) GasPriceHex() string {
-	x := common.String2Big(self.GasPrice)
+	x := util.String2Big(self.GasPrice)
 	return hexutil.EncodeBig(x)
 }
 
@@ -111,7 +114,7 @@ func (u *PayoutsProcessor) process() {
 	mustPay := 0
 	minersPaid := 0
 	totalAmount := big.NewInt(0)
-	payees, err := u.backend.GetPayees()
+	payees, err := u.backend.GetMiners()
 	if err != nil {
 		log.Println("Error while retrieving payees from backend:", err)
 		return
@@ -119,12 +122,20 @@ func (u *PayoutsProcessor) process() {
 
 	for _, login := range payees {
 		amount, _ := u.backend.GetBalance(login)
+		lastActivity, _ := u.backend.GetLastActivity(login)
 		amountInShannon := big.NewInt(amount)
+		inactive := lastActivity.Before(time.Now().AddDate(0, 0, -7))
+
+		if inactive {
+			amountInShannon.Sub(amountInShannon, big.NewInt(u.config.InactiveFee))
+		} else {
+			amountInShannon.Sub(amountInShannon, big.NewInt(u.config.NormalFee))
+		}
 
 		// Shannon^2 = Wei
-		amountInWei := new(big.Int).Mul(amountInShannon, common.Shannon)
+		amountInWei := new(big.Int).Mul(amountInShannon, util.Shannon)
 
-		if !u.reachedThreshold(amountInShannon) {
+		if !u.reachedThreshold(amountInShannon, inactive) {
 			continue
 		}
 		mustPay++
@@ -195,19 +206,21 @@ func (u *PayoutsProcessor) process() {
 		totalAmount.Add(totalAmount, big.NewInt(amount))
 		log.Printf("Paid %v Shannon to %v, TxHash: %v", amount, login, txHash)
 
+		time.Sleep(txCheckInterval)
+
 		// Wait for TX confirmation before further payouts
-		for {
-			log.Printf("Waiting for tx confirmation: %v", txHash)
-			time.Sleep(txCheckInterval)
-			receipt, err := u.rpc.GetTxReceipt(txHash)
-			if err != nil {
-				log.Printf("Failed to get tx receipt for %v: %v", txHash, err)
-			}
-			if receipt != nil && receipt.Confirmed() {
-				break
-			}
-		}
-		log.Printf("Payout tx for %s confirmed: %s", login, txHash)
+		//for {
+		//	log.Printf("Waiting for tx confirmation: %v", txHash)
+		//	time.Sleep(txCheckInterval)
+		//	receipt, err := u.rpc.GetTxReceipt(txHash)
+		//	if err != nil {
+		//		log.Printf("Failed to get tx receipt for %v: %v", txHash, err)
+		//	}
+		//	if receipt != nil && receipt.Confirmed() {
+		//		break
+		//	}
+		//}
+		//log.Printf("Payout tx for %s confirmed: %s", login, txHash)
 	}
 
 	if mustPay > 0 {
@@ -244,8 +257,14 @@ func (self PayoutsProcessor) checkPeers() bool {
 	return true
 }
 
-func (self PayoutsProcessor) reachedThreshold(amount *big.Int) bool {
-	return big.NewInt(self.config.Threshold).Cmp(amount) < 0
+func (self PayoutsProcessor) reachedThreshold(amount *big.Int, inactive bool) bool {
+	threshold := big.NewInt(self.config.NormalThreshold)
+	fee := big.NewInt(self.config.NormalFee)
+	if inactive {
+		threshold = big.NewInt(self.config.InactiveThreshold)
+		fee = big.NewInt(self.config.InactiveFee)
+	}
+	return ( threshold.Cmp(amount) < 0 ) && ( fee.Cmp(amount) < 0 )
 }
 
 func formatPendingPayments(list []*storage.PendingPayment) string {

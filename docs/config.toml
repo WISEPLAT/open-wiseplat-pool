@@ -1,0 +1,53 @@
+[parity]
+no_download = true
+
+[account]
+unlock = ["d7116b28f20f8be70afbe791fcc6ca042fbdd6b3"]
+password = ["/home/parity/.password"]
+
+[ui]
+disable = true
+
+[network]
+port = 30373
+min_peers = 50
+max_peers = 125
+snapshot_peers = 50
+discovery = true
+max_pending_peers = 64
+allow_ips = "all"
+
+[rpc]
+disable = false
+port = 8747
+interface = "local"
+cors = "null"
+apis = ["web3", "wsh", "net", "parity", "rpc"]
+hosts = ["none"]
+
+[websockets]
+disable = true
+
+[ipc]
+disable = false
+apis = ["web3", "wsh", "net", "parity", "parity_accounts", "personal", "traces", "rpc"]
+
+[dapps]
+disable = true
+
+[secretstore]
+disable = true
+
+[ipfs]
+enable = false
+
+[mining]
+author = "d7116b28f20f8be70afbe791fcc6ca042fbdd6b3"
+min_gas_price = 99000000000
+
+[vm]
+jit = false
+
+[misc]
+log_file = "/home/parity/parity.log"
+color = false

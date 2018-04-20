@@ -3,6 +3,7 @@ package proxy
 import (
 	"github.com/wiseplat/open-wiseplat-pool/api"
 	"github.com/wiseplat/open-wiseplat-pool/payouts"
+	"github.com/wiseplat/open-wiseplat-pool/shifts"
 	"github.com/wiseplat/open-wiseplat-pool/policy"
 	"github.com/wiseplat/open-wiseplat-pool/storage"
 )
@@ -19,23 +20,18 @@ type Config struct {
 	Coin  string         `json:"coin"`
 	Redis storage.Config `json:"redis"`
 
-	BlockUnlocker payouts.UnlockerConfig `json:"unlocker"`
 	Payouts       payouts.PayoutsConfig  `json:"payouts"`
-
-	NewrelicName    string `json:"newrelicName"`
-	NewrelicKey     string `json:"newrelicKey"`
-	NewrelicVerbose bool   `json:"newrelicVerbose"`
-	NewrelicEnabled bool   `json:"newrelicEnabled"`
+	Shifts        shifts.ShiftsConfig  `json:"shifts"`
 }
 
 type Proxy struct {
 	Enabled              bool   `json:"enabled"`
 	Listen               string `json:"listen"`
-	LimitHeadersSize     int    `json:"limitHeadersSize"`
-	LimitBodySize        int64  `json:"limitBodySize"`
-	BehindReverseProxy   bool   `json:"behindReverseProxy"`
 	BlockRefreshInterval string `json:"blockRefreshInterval"`
 	Difficulty           int64  `json:"difficulty"`
+	MiningFee            float64 `json:"miningFee"`
+	PoT_A                float64 `json:"potA"`
+	PoT_Cap              float64 `json:"potCap"`
 	StateUpdateInterval  string `json:"stateUpdateInterval"`
 	HashrateExpiration   string `json:"hashrateExpiration"`
 
@@ -44,12 +40,15 @@ type Proxy struct {
 	MaxFails    int64 `json:"maxFails"`
 	HealthCheck bool  `json:"healthCheck"`
 
-	Stratum Stratum `json:"stratum"`
+	Stratum StratumEndpoint `json:"stratum"`
 }
 
-type Stratum struct {
+type StratumEndpoint struct {
 	Enabled bool   `json:"enabled"`
 	Listen  string `json:"listen"`
+	Protocol string `json:"protocol"`
+	NonceSpace []uint8 `json:"xnSpace"`
+	NonceSize int `json:"xnSize"`
 	Timeout string `json:"timeout"`
 	MaxConn int    `json:"maxConn"`
 }

@@ -13,7 +13,7 @@ import (
 	"github.com/wiseplat/open-wiseplat-pool/util"
 )
 
-const maxBacklog = 3
+const MaxBacklog = 6
 
 type heightDiffPair struct {
 	diff   *big.Int
@@ -82,7 +82,7 @@ func (s *ProxyServer) fetchBlockTemplate() {
 	}
 	if t != nil {
 		for k, v := range t.headers {
-			if v.height > height-maxBacklog {
+			if v.height > height-MaxBacklog {
 				newTemplate.headers[k] = v
 			}
 		}
@@ -90,9 +90,13 @@ func (s *ProxyServer) fetchBlockTemplate() {
 	s.blockTemplate.Store(&newTemplate)
 	log.Printf("New block to mine on %s at height %d / %s", rpc.Name, height, reply[0][0:10])
 
-	// Stratum
-	if s.config.Proxy.Stratum.Enabled {
-		go s.broadcastNewJobs()
+	// Stratum Proxy jobs
+	switch s.config.Proxy.Stratum.Protocol {
+	case "Stratum-Proxy":
+		go s.broadcastNewSPJobs()
+	case "WiseplatStratum":
+		go s.broadcastNewESJobs()
+	default:
 	}
 }
 
