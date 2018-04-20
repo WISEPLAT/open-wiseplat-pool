@@ -12,6 +12,7 @@
 		"blockRefreshInterval": "120ms",
 		"stateUpdateInterval": "3s",
 		"difficulty": 2000000000,
+		"miningFee": 1.5,
 		"hashrateExpiration": "3h",
 
 		"healthCheck": true,
@@ -54,9 +55,9 @@
 		"statsCollectInterval": "5s",
 		"hashrateWindow": "30m",
 		"hashrateLargeWindow": "3h",
-		"luckWindow": [64, 128, 256],
 		"payments": 30,
-		"blocks": 50
+		"longShifts": 30,
+		"shortShifts": 24
 	},
 
 	"upstreamCheckInterval": "5s",
@@ -74,23 +75,11 @@
 	],
 
 	"redis": {
-		"endpoint": "127.0.0.1:6379",
+		"network": "unix",
+		"endpoint": "/var/run/redis.sock",
 		"poolSize": 10,
 		"database": 0,
 		"password": ""
-	},
-
-	"unlocker": {
-		"enabled": false,
-		"poolFee": 1.0,
-		"poolFeeAddress": "",
-		"donate": true,
-		"depth": 120,
-		"immatureDepth": 20,
-		"keepTxFees": false,
-		"interval": "10m",
-		"daemon": "http://127.0.0.1:8747",
-		"timeout": "10s"
 	},
 
 	"payouts": {
@@ -107,8 +96,12 @@
 		"bgsave": false
 	},
 
-	"newrelicEnabled": false,
-	"newrelicName": "MyWiseProxy",
-	"newrelicKey": "SECRET_KEY",
-	"newrelicVerbose": false
+	"shifts": {
+		"enabled": false,
+		"longInterval": "24h",
+		"shortInterval" : "1h",
+		"keepLong" : "720h",
+		"keepShort": "24h",
+		"flushInterval": "24h"
+	}
 }

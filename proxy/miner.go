@@ -18,6 +18,7 @@ func (s *ProxyServer) processShare(login, id, ip string, t *BlockTemplate, param
 	mixDigest := params[2]
 	nonce, _ := strconv.ParseUint(strings.Replace(nonceHex, "0x", "", -1), 16, 64)
 	shareDiff := s.config.Proxy.Difficulty
+	shareFee := s.config.Proxy.MiningFee
 
 	h, ok := t.headers[hashNoNonce]
 	if !ok {
@@ -28,24 +29,19 @@ func (s *ProxyServer) processShare(login, id, ip string, t *BlockTemplate, param
 	share := Block{
 		number:      h.height,
 		hashNoNonce: common.HexToHash(hashNoNonce),
-		difficulty:  big.NewInt(shareDiff),
-		nonce:       nonce,
-		mixDigest:   common.HexToHash(mixDigest),
-	}
-
-	block := Block{
-		number:      h.height,
-		hashNoNonce: common.HexToHash(hashNoNonce),
 		difficulty:  h.diff,
 		nonce:       nonce,
 		mixDigest:   common.HexToHash(mixDigest),
 	}
 
-	if !hasher.Verify(share) {
+	// Verify validity against block and share target
+	isShare, isBlock, actualDiff, _ := hasher.VerifyShare(share, big.NewInt(shareDiff))
+
+	if !isShare {
 		return false, false
 	}
 
-	if hasher.Verify(block) {
+	if isBlock {
 		ok, err := s.rpc().SubmitBlock(params)
 		if err != nil {
 			log.Printf("Block submission failure at height %v for %v: %v", h.height, t.Header, err)
@@ -54,7 +50,7 @@ func (s *ProxyServer) processShare(login, id, ip string, t *BlockTemplate, param
 			return false, false
 		} else {
 			s.fetchBlockTemplate()
-			exist, err := s.backend.WriteBlock(login, id, params, shareDiff, h.diff.Int64(), h.height, s.hashrateExpiration)
+			exist, err := s.backend.WriteBlock(login, id, params, shareDiff, actualDiff, shareFee, h.diff.Int64(), h.height, t.Height, s.hashrateExpiration)
 			if exist {
 				return true, false
 			}
@@ -66,7 +62,7 @@ func (s *ProxyServer) processShare(login, id, ip string, t *BlockTemplate, param
 			log.Printf("Block found by miner %v@%v at height %d", login, ip, h.height)
 		}
 	} else {
-		exist, err := s.backend.WriteShare(login, id, params, shareDiff, h.height, s.hashrateExpiration)
+		exist, err := s.backend.WriteShare(login, id, params, shareDiff, actualDiff, shareFee, h.diff.Int64(), h.height, t.Height, s.hashrateExpiration)
 		if exist {
 			return true, false
 		}

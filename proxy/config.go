@@ -3,6 +3,7 @@ package proxy
 import (
 	"github.com/wiseplat/open-wiseplat-pool/api"
 	"github.com/wiseplat/open-wiseplat-pool/payouts"
+	"github.com/wiseplat/open-wiseplat-pool/shifts"
 	"github.com/wiseplat/open-wiseplat-pool/policy"
 	"github.com/wiseplat/open-wiseplat-pool/storage"
 )
@@ -19,13 +20,8 @@ type Config struct {
 	Coin  string         `json:"coin"`
 	Redis storage.Config `json:"redis"`
 
-	BlockUnlocker payouts.UnlockerConfig `json:"unlocker"`
 	Payouts       payouts.PayoutsConfig  `json:"payouts"`
-
-	NewrelicName    string `json:"newrelicName"`
-	NewrelicKey     string `json:"newrelicKey"`
-	NewrelicVerbose bool   `json:"newrelicVerbose"`
-	NewrelicEnabled bool   `json:"newrelicEnabled"`
+	Shifts        shifts.ShiftsConfig  `json:"shifts"`
 }
 
 type Proxy struct {
@@ -36,6 +32,7 @@ type Proxy struct {
 	BehindReverseProxy   bool   `json:"behindReverseProxy"`
 	BlockRefreshInterval string `json:"blockRefreshInterval"`
 	Difficulty           int64  `json:"difficulty"`
+	MiningFee            float64 `json:"miningFee"`
 	StateUpdateInterval  string `json:"stateUpdateInterval"`
 	HashrateExpiration   string `json:"hashrateExpiration"`
 

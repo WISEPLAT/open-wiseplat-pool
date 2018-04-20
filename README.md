@@ -1,10 +1,8 @@
 ## Open Source Wiseplat Mining Pool
 
-![Miner's stats page](https://15254b2dcaab7f5478ab-24461f391e20b7336331d5789078af53.ssl.cf1.rackcdn.com/wiseplat.vanillaforums.com/editor/pe/cf77cki0pjpt.png)
+**PPS version**
 
-[![Join the chat at https://gitter.im/wiseplat/open-wiseplat-pool](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wiseplat/open-wiseplat-pool?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/wiseplat/open-wiseplat-pool.svg?branch=develop)](https://travis-ci.org/wiseplat/open-wiseplat-pool) [![Go Report Card](https://goreportcard.com/badge/github.com/wiseplat/open-wiseplat-pool)](https://goreportcard.com/report/github.com/wiseplat/open-wiseplat-pool)
-
-[List Of Open Wiseplat Pools](https://github.com/wiseplat/open-wiseplat-pool/wiki/List-Of-Open-Pools)
+Please consider reading docs/GettingStarted.md first.
 
 ### Features
 
@@ -26,8 +24,8 @@
 
 Dependencies:
 
-  * go >= 1.5
-  * gwsh
+  * go >= 1.6
+  * gwsh or parity
   * redis-server >= 2.8.0
   * nodejs >= 4 LTS
   * nginx
@@ -38,7 +36,8 @@ First install  [go-wiseplat](https://github.com/wiseplat/go-wiseplat/wiki/Instal
 
 Clone & compile:
 
-    git clone https://github.com/wiseplat/open-wiseplat-pool.git
+    git config --global http.https://gopkg.in.followRedirects true
+    git clone -b PPS https://github.com/wiseplat/open-wiseplat-pool.git
     cd open-wiseplat-pool
     make
 
@@ -140,6 +139,8 @@ otherwise you will get errors on start because of JSON comments.**
     "stateUpdateInterval": "3s",
     // Require this share difficulty from miners
     "difficulty": 2000000000,
+    // PPS fee applied to each share submitted
+    "miningFee": 1.5,
 
     /* Reply error to miner instead of job if redis is unavailable.
       Should save electricity to miners if pool is sick and they didn't set up failovers.
@@ -198,8 +199,9 @@ otherwise you will get errors on start because of JSON comments.**
     "luckWindow": [64, 128, 256],
     // Max number of payments to display in frontend
     "payments": 50,
-    // Max numbers of blocks to display in frontend
-    "blocks": 50,
+    // Max numbers of shifts to display in frontend
+    "longShifts": 30,
+    "shortShifts": 24,
 
     /* If you are running API node on a different server where this module
       is reading data from redis writeable slave, you must run an api instance with this option enabled in order to purge hashrate stats from main redis node.
@@ -238,29 +240,6 @@ otherwise you will get errors on start because of JSON comments.**
     "password": ""
   },
 
-  // This module periodically remits wise to miners
-  "unlocker": {
-    "enabled": false,
-    // Pool fee percentage
-    "poolFee": 1.0,
-    // Pool fees beneficiary address (leave it blank to disable fee withdrawals)
-    "poolFeeAddress": "",
-    // Donate 10% from pool fees to developers
-    "donate": true,
-    // Unlock only if this number of blocks mined back
-    "depth": 120,
-    // Simply don't touch this option
-    "immatureDepth": 20,
-    // Keep mined transaction fees as pool fees
-    "keepTxFees": false,
-    // Run unlocker in this interval
-    "interval": "10m",
-    // Gwsh instance node rpc endpoint for unlocking blocks
-    "daemon": "http://127.0.0.1:8747",
-    // Rise error if can't reach gwsh in this amount of time
-    "timeout": "10s"
-  },
-
   // Pay out miners using this module
   "payouts": {
     "enabled": false,
@@ -283,6 +262,19 @@ otherwise you will get errors on start because of JSON comments.**
     "threshold": 500000000,
     // Perform BGSAVE on Redis after successful payouts session
     "bgsave": false
+  },
+  
+  // Maintain daily shifts of per-user statistics
+  "shifts": {
+    "enabled": false,
+
+    // Create long shifts in these intervals
+    "longInterval": "24h",
+    "shortInterval" : "1h",
+
+    // Keep shifts data during these intervals
+    "keepLong" : "30d",
+    "keepShort": "24h"
   }
 }
 ```
@@ -293,29 +285,21 @@ create several configs and disable unneeded modules on each server. (Advanced us
 I recommend this deployment strategy:
 
 * Mining instance - 1x (it depends, you can run one node for EU, one for US, one for Asia)
-* Unlocker and payouts instance - 1x each (strict!)
+* Payouts instance - 1x (strict!)
+* Shifting instance - 1x (strict!)
 * API instance - 1x
 
 ### Notes
 
-* Unlocking and payouts are sequential, 1st tx go, 2nd waiting for 1st to confirm and so on. You can disable that in code. Carefully read `docs/PAYOUTS.md`.
-* Also, keep in mind that **unlocking and payouts will halt in case of backend or node RPC errors**. In that case check everything and restart.
+* Payouts are sequential, 1st tx go, 2nd waiting for 1st to confirm and so on. You can disable that in code. Carefully read `docs/PAYOUTS.md`.
+* Also, keep in mind that **payouts will halt in case of backend or node RPC errors**. In that case check everything and restart.
 * You must restart module if you see errors with the word *suspended*.
-* Don't run payouts and unlocker modules as part of mining node. Create separate configs for both, launch independently and make sure you have a single instance of each module running.
-* If `poolFeeAddress` is not specified all pool profit will remain on coinbase address. If it specified, make sure to periodically send some dust back required for payments.
+* Don't run either payouts or shifting  module as part of mining node. Create separate configs for them, launch independently and make sure you have a single instance of each module running.
 
 ### Alternative Wiseplat Implementations
 
-This pool is tested to work with [Wshcore's Parity](https://github.com/wshcore/parity). Mining and block unlocking works, but I am not sure about payouts and suggest to run *official* gwsh node for payments.
+This pool is tested to work with [Wshcore's Parity](https://github.com/wshcore/parity).
 
 ### Credits
 
-Made by sammy007. Licensed under GPLv3.
-
-#### Contributors
-
-[Alex Leverington](https://github.com/subtly)
-
-### Donations
-
-WSH: 0xc285f9dc21232fe887830234631adb9544e40d31
+Original code made by sammy007. Licensed under GPLv3.

@@ -13,7 +13,7 @@ import (
 	"github.com/wiseplat/open-wiseplat-pool/util"
 )
 
-const maxBacklog = 3
+const maxBacklog = 6
 
 type heightDiffPair struct {
 	diff   *big.Int
