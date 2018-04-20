@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Wiseplat Mining Pool</title>
+    <meta name="description" content="High profitability Wiseplat mining pool"/>
+    <meta name="keywords" content="wiseplat, pool, mining, cryptocurrency"/>
+    <script src="https://cdn.polyfill.io/v1/polyfill.min.js?features=Intl.~locale.en"></script>
+    {{content-for "head"}}
+    <link rel="stylesheet" href="{{rootURL}}assets/vendor.css">
+    <link rel="stylesheet" href="{{rootURL}}assets/open-wiseplat-pool.css">
+    {{content-for "head-footer"}}
+  </head>
+  <body>
+    {{content-for "body"}}
+
+    <script src="{{rootURL}}assets/vendor.js"></script>
+    <script src="{{rootURL}}assets/open-wiseplat-pool.js"></script>
+
+    {{content-for "body-footer"}}
+
+    <footer class="footer">
+      <div class="container">
+        <p class="text-muted">&copy; CHANGEME in app/templates/index.html |
+          Powered by <a href="https://github.com/wiseplat/open-wiseplat-pool" target="_blank">open-wiseplat-pool</a> |
+          <strong>Dev WSH:</strong>
+          <a href="https://wisescan.io/address/0xc285f9dc21232fe887830234631adb9544e40d31" rel="nofollow" target="_blank">
+            0xc285f9dc21232fe887830234631adb9544e40d31
+          </a>
+        </p>
+      </div>
+    </footer>
+  </body>
+</html>
