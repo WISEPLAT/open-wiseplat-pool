@@ -1,10 +1,8 @@
 ## Open Source Wiseplat Mining Pool
 
-![Miner's stats page](https://15254b2dcaab7f5478ab-24461f391e20b7336331d5789078af53.ssl.cf1.rackcdn.com/wiseplat.vanillaforums.com/editor/pe/cf77cki0pjpt.png)
+![Miner's stats page](https://user-images.githubusercontent.com/7374093/31591180-43c72364-b236-11e7-8d47-726cd66b876a.png)
 
 [![Join the chat at https://gitter.im/wiseplat/open-wiseplat-pool](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/wiseplat/open-wiseplat-pool?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge) [![Build Status](https://travis-ci.org/wiseplat/open-wiseplat-pool.svg?branch=develop)](https://travis-ci.org/wiseplat/open-wiseplat-pool) [![Go Report Card](https://goreportcard.com/badge/github.com/wiseplat/open-wiseplat-pool)](https://goreportcard.com/report/github.com/wiseplat/open-wiseplat-pool)
-
-[List Of Open Wiseplat Pools](https://github.com/wiseplat/open-wiseplat-pool/wiki/List-Of-Open-Pools)
 
 ### Features
 
@@ -26,8 +24,8 @@
 
 Dependencies:
 
-  * go >= 1.5
-  * gwsh
+  * go >= 1.9
+  * gwsh or parity
   * redis-server >= 2.8.0
   * nodejs >= 4 LTS
   * nginx
@@ -38,6 +36,7 @@ First install  [go-wiseplat](https://github.com/wiseplat/go-wiseplat/wiki/Instal
 
 Clone & compile:
 
+    git config --global http.https://gopkg.in.followRedirects true
     git clone https://github.com/wiseplat/open-wiseplat-pool.git
     cd open-wiseplat-pool
     make
@@ -319,3 +318,7 @@ Made by sammy007. Licensed under GPLv3.
 ### Donations
 
 WSH: 0xc285f9dc21232fe887830234631adb9544e40d31
+
+![](https://cdn.pbrd.co/images/GP5tI1D.png)
+
+Highly appreciated.

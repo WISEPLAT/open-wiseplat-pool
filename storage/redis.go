@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wiseplat/go-wiseplat/common"
 	"gopkg.in/redis.v3"
 
 	"github.com/wiseplat/open-wiseplat-pool/util"
@@ -47,7 +46,7 @@ type BlockData struct {
 }
 
 func (b *BlockData) RewardInShannon() int64 {
-	reward := new(big.Int).Div(b.Reward, common.Shannon)
+	reward := new(big.Int).Div(b.Reward, util.Shannon)
 	return reward.Int64()
 }
 

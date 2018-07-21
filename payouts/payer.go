@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/wiseplat/go-wiseplat/common"
 	"github.com/wiseplat/go-wiseplat/common/hexutil"
 
 	"github.com/wiseplat/open-wiseplat-pool/rpc"
@@ -34,12 +33,12 @@ type PayoutsConfig struct {
 }
 
 func (self PayoutsConfig) GasHex() string {
-	x := common.String2Big(self.Gas)
+	x := util.String2Big(self.Gas)
 	return hexutil.EncodeBig(x)
 }
 
 func (self PayoutsConfig) GasPriceHex() string {
-	x := common.String2Big(self.GasPrice)
+	x := util.String2Big(self.GasPrice)
 	return hexutil.EncodeBig(x)
 }
 
@@ -122,7 +121,7 @@ func (u *PayoutsProcessor) process() {
 		amountInShannon := big.NewInt(amount)
 
 		// Shannon^2 = Wei
-		amountInWei := new(big.Int).Mul(amountInShannon, common.Shannon)
+		amountInWei := new(big.Int).Mul(amountInShannon, util.Shannon)
 
 		if !u.reachedThreshold(amountInShannon) {
 			continue
@@ -202,12 +201,18 @@ func (u *PayoutsProcessor) process() {
 			receipt, err := u.rpc.GetTxReceipt(txHash)
 			if err != nil {
 				log.Printf("Failed to get tx receipt for %v: %v", txHash, err)
+				continue
 			}
+			// Tx has been mined
 			if receipt != nil && receipt.Confirmed() {
+				if receipt.Successful() {
+					log.Printf("Payout tx successful for %s: %s", login, txHash)
+				} else {
+					log.Printf("Payout tx failed for %s: %s. Address contract throws on incoming tx.", login, txHash)
+				}
 				break
 			}
 		}
-		log.Printf("Payout tx for %s confirmed: %s", login, txHash)
 	}
 
 	if mustPay > 0 {

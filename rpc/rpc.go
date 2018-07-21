@@ -46,14 +46,25 @@ type GetBlockReplyPart struct {
 	Difficulty string `json:"difficulty"`
 }
 
+const receiptStatusSuccessful = "0x1"
+
 type TxReceipt struct {
 	TxHash    string `json:"transactionHash"`
 	GasUsed   string `json:"gasUsed"`
 	BlockHash string `json:"blockHash"`
+	Status    string `json:"status"`
 }
 
 func (r *TxReceipt) Confirmed() bool {
 	return len(r.BlockHash) > 0
+}
+
+// Use with previous method
+func (r *TxReceipt) Successful() bool {
+	if len(r.Status) > 0 {
+		return r.Status == receiptStatusSuccessful
+	}
+	return true
 }
 
 type Tx struct {
@@ -161,7 +172,7 @@ func (r *RPCClient) GetBalance(address string) (*big.Int, error) {
 	if err != nil {
 		return nil, err
 	}
-	return common.String2Big(reply), err
+	return util.String2Big(reply), err
 }
 
 func (r *RPCClient) Sign(from string, s string) (string, error) {
